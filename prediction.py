@@ -1,8 +1,10 @@
 from pathlib import Path
 import pandas as pd
 import pickle
+import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import SGDClassifier
+from sklearn.utils import shuffle
 
 def oneHotEncoding(features, uniqueValues):
 	for filename in Path.cwd().glob("*.pickle"):
@@ -88,17 +90,74 @@ def preProcessing(dataFolder):
 	oneHotEncoding(features, uniqueValues)
 
 def partialFit():
-	paths = sorted(list(Path.cwd().glob("*.pickle")))
-	for i in range(8):
+	finalDf = pd.DataFrame()
+	for i in range(7): #no 8 is test
 		with open(str(i+1) + ".pickle", 'rb') as handle:
 			df = pickle.load(handle)
-		Y = df.click
-		X = df.drop('click', axis=1)
-		import ipdb; ipdb.set_trace()
-		model = SGDClassifier()
-		model.partial_fit(X,Y, classes=Y.unique())
+		
+		cols = df.columns.tolist()
+		cols.insert(len(cols)-1, cols.pop(cols.index('click')))
+		df = df[cols]
 
 
+		minorDf = df[df.click == 1]
+		#undersampling of majority class and keeping ratio 1:10
+		majorDf = df[df.click == 0].sample(n=len(minorDf)*10, replace=False)
+		
+		dfSampled = pd.concat([minorDf, majorDf], axis=0)
+
+		finalDf = finalDf.append(dfSampled)
+
+	#reshuffle the dataframe rows
+	finalDf = finalDf.sample(frac=1)
+
+	# import ipdb; ipdb.set_trace()
+	from sklearn import metrics
+	from sklearn import cross_validation
+	from sklearn.neighbors import KNeighborsClassifier
+	from sklearn.tree import DecisionTreeClassifier
+	from sklearn.naive_bayes import MultinomialNB
+	from sklearn.cross_validation import StratifiedKFold
+	from sklearn.ensemble import RandomForestClassifier
+	from sklearn.linear_model import LogisticRegression
+	from sklearn.svm import SVC
+
+	Y = df.click	
+	X = df.drop('click', axis=1).as_matrix()
+	# prepare configuration for cross validation test with basic classifier
+	num_folds = 5
+	num_instances = len(X)
+	seed = 7
+	print('preparing models')
+	models = []
+	models.append(('LR', LogisticRegression()))
+	# models.append(('KNN', KNeighborsClassifier()))
+	models.append(('DT', DecisionTreeClassifier()))
+	models.append(('NB', MultinomialNB()))
+	models.append(('SVM', SVC()))
+	# evaluate each model
+	results = []
+	names = []
+	scoring = 'accuracy'
+
+	for name, model in models:
+		print('evaluating '+ name)
+		kfold = cross_validation.KFold(n=num_instances, n_folds=num_folds, random_state=seed)
+		cv_results = cross_validation.cross_val_score(model, X, Y, cv=kfold, scoring=scoring)
+		results.append(cv_results)
+		names.append(name)
+		msg = "%s: %f (%f)" % (name, cv_results.mean(), cv_results.std())
+		print(msg)
+
+	from matplotlib import pyplot as plt
+	# Creating boxplot for Model comparison
+	fig = plt.figure()
+	fig.suptitle('Model Comparison')
+	ax = fig.add_subplot(111)
+	plt.boxplot(results)
+	ax.set_xticklabels(names)
+	plt.show()
+	import ipdb; ipdb.set_trace()
 		
 
 def main():
