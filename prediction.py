@@ -15,7 +15,6 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from imblearn.over_sampling import SMOTE
-from sklearn.ensemble import RandomForestClassifier
 
 
 def oneHotEncoding(features, uniqueValues):
