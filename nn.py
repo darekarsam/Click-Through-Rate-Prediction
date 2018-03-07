@@ -15,6 +15,22 @@ def loadFile(num):
 	cols.insert(len(cols)-1, cols.pop(cols.index('click')))
 	return df[cols]
 
+def getHeatmap(data):
+	""" Function to get Heatmap of normalized Numerical values before 
+		applying to the classifier
+	"""
+	corr = data.corr()
+	mask = np.zeros_like(corr, dtype=np.bool)
+	mask[np.triu_indices_from(mask)] = True
+	f, ax = plt.subplots(figsize=(11, 9))
+	cmap = sns.diverging_palette(220, 10, as_cmap=True)
+	# import ipdb; ipdb.set_trace()
+	ax = sns.heatmap(corr, mask=mask, cmap=cmap, vmax=.3, annot=True,
+			square=True, linewidths=.5, cbar_kws={"shrink": .5}, ax=ax)
+	ax.set_title("Heatmap of normalized continous variables")
+	plt.savefig('corrHeatmap.png')
+	print("Correlation Heatmap saved .. ")
+
 def getTrainData():
 	finalDf = pd.DataFrame()
 	print("getting train data ...")
@@ -33,6 +49,9 @@ def getTrainData():
 		finalDf = finalDf.append(dfSampled)
 
 	finalDf = finalDf.sample(frac=1)#shuffle dataframe
+	
+	# tempDf = finalDf[['width', 'height', 'slotPrice', 'bidprice', 'payPrice']]
+	# getHeatmap(tempDf)
 
 	Y = finalDf.click
 	X = finalDf.drop('click', axis=1)
@@ -51,39 +70,6 @@ def getTestData():
 	Y = pd.get_dummies(df.click).as_matrix()
 	X = df.drop('click', axis=1).as_matrix()
 	return X,Y
-
-X, Y = getTrainData()
-
-
-# To stop potential randomness
-seed = 128
-split_size = int(X.shape[0]*0.8)
-# Shuffle arrays
-s = np.arange(X.shape[0])
-np.random.shuffle(s)
-X = X[s]
-Y = Y[s]
-# Y = finalDf.click
-
-# import ipdb; ipdb.set_trace()
-
-# Seperate training and validation setn
-
-train_x, val_x = X[:split_size], X[split_size:]
-train_y, val_y = Y[:split_size], Y[split_size:]
-
-import tensorflow as tf
-# Neural Network size parameters
-n_nodes_hl1 = 500
-n_nodes_hl2 = 250
-n_nodes_hl3 = 40
-n_classes = 2
-features = train_x.shape[1] 
-batch_size = 256
-
-x = tf.placeholder('float', [None, features])
-y = tf.placeholder("float", [None, n_classes])
-keep_prob = tf.placeholder("float")
 
 def neural_network_model(data, keep_prob):
 #initialize weights and bias having 0 mean randomly 
@@ -122,7 +108,6 @@ def neural_network_model(data, keep_prob):
 
 def train_neural_network(x, keep_prob):
 	prediction = neural_network_model(x, keep_prob)
-	# import ipdb; ipdb.set_trace()
 	cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, 
 		labels=y))
 	
@@ -173,7 +158,7 @@ def train_neural_network(x, keep_prob):
 				print('Epoch {}/{} Loss: {}'.format(epoch+1, hm_epochs, epoch_loss))
 		# costLine, = ax.plot(epochValues, costValues)
 		# fig.canvas.draw()
-		# 	# time.sleep(1)
+		#   # time.sleep(1)
 		# import ipdb; ipdb.set_trace()
 		predicted = tf.argmax(prediction, 1)
 		actual = tf.argmax(y, 1)
@@ -192,15 +177,60 @@ def train_neural_network(x, keep_prob):
 		print('Training Accuracy: ',accuracy.eval({x:train_x, y:train_y, keep_prob: 1.0}))
 		print('Training Precision: ',precision.eval({x:train_x, y:train_y, keep_prob: 1.0}))
 		print('Training Recall: ',recall.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+		print(" ")
 
 		print('Validation Accuracy: ',accuracy.eval({x:val_x, y:val_y, keep_prob: 1.0}))
 		print('Validation Precision: ',precision.eval({x:val_x, y:val_y, keep_prob: 1.0}))
 		print('Validation Recall: ',recall.eval({x:val_x, y:val_y, keep_prob: 1.0}))
+		print(" ")
 
 		test_x, test_y = getTestData()
 		print('Test Accuracy: ',accuracy.eval({x:test_x, y:test_y, keep_prob: 1.0}))
 		print('Test Precision: ',precision.eval({x:test_x, y:test_y, keep_prob: 1.0}))
 		print('Test Recall: ',recall.eval({x:test_x, y:test_y, keep_prob: 1.0}))
+		print(" ")
+
+		# import ipdb; ipdb.set_trace()
+		# indexes = np.ones(train_x.shape[0])
+		# indexes = tf.convert_to_tensor(indexes)
+		proba1 = prediction[:, 1]
+		proba1 = proba1.eval({x:train_x, y:train_y, keep_prob: 1.0})
+		index1 = actual.eval({x:train_x, y:train_y, keep_prob: 1.0})
+		probaDf = pd.DataFrame({'proba1': proba1, 'click' : index1})
+
+		f, ax = plt.subplots()
+		ax = sns.distplot(probaDf[probaDf.click==0].proba1, hist=False, label="No Click", color='red')
+		ax = sns.distplot(probaDf[probaDf.click==1].proba1, hist=False, label="Click", color='blue')
+		ax.set_title("Score Distribution of Prediction by class variable")
+		plt.savefig('distr.png')
+		plt.show()
+
+		
 
 
+X, Y = getTrainData()
+
+# Shuffle arrays
+s = np.arange(X.shape[0])
+np.random.shuffle(s)
+X = X[s]
+Y = Y[s]
+
+# Seperate training and validation set
+split_size = int(X.shape[0]*0.8)
+train_x, val_x = X[:split_size], X[split_size:]
+train_y, val_y = Y[:split_size], Y[split_size:]
+
+	# Neural Network size parameters
+n_nodes_hl1 = 500
+n_nodes_hl2 = 250
+n_nodes_hl3 = 40
+n_classes = 2
+features = train_x.shape[1] 
+batch_size = 256
+
+x = tf.placeholder('float', [None, features])
+y = tf.placeholder("float", [None, n_classes])
+keep_prob = tf.placeholder("float")
 train_neural_network(x, keep_prob)
+
