@@ -8,36 +8,51 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-finalDf = pd.DataFrame()
-print("getting data")
-for i in range(7): #no 8 is test
-	with open(str(i+1) + ".pickle", 'rb') as handle:
+def loadFile(num):
+	with open(str(num) + ".pickle", 'rb') as handle:
 		df = pickle.load(handle)
 	cols = df.columns.tolist()
 	cols.insert(len(cols)-1, cols.pop(cols.index('click')))
-	df = df[cols]
+	return df[cols]
 
+def getTrainData():
+	finalDf = pd.DataFrame()
+	print("getting train data ...")
 
-	minorDf = df[df.click == 1]
-	#undersampling of majority class and keeping ratio 1:10
-	majorDf = df[df.click == 0].sample(n=len(minorDf)*10, replace=False)
+	#reusing the preprocessd data saved as pickle
+	for i in range(7): #no 8 is test
+		df = loadFile(i+1)
 
-	dfSampled = pd.concat([minorDf, majorDf], axis=0)
+		minorDf = df[df.click == 1]
 
-	finalDf = finalDf.append(dfSampled)
+		#undersampling of majority class and keeping ratio 1:10
+		majorDf = df[df.click == 0].sample(n=len(minorDf)*10, replace=False)
 
-finalDf = finalDf.sample(frac=1)
+		dfSampled = pd.concat([minorDf, majorDf], axis=0)
 
-Y = finalDf.click
-X = finalDf.drop('click', axis=1)
+		finalDf = finalDf.append(dfSampled)
 
-del finalDf
-gc.collect()
+	finalDf = finalDf.sample(frac=1)#shuffle dataframe
 
+	Y = finalDf.click
+	X = finalDf.drop('click', axis=1)
 
-X, Y = SMOTE(random_state=7, ratio='auto').fit_sample(X,Y)
+	del finalDf
+	gc.collect()
+	
+	#Generate synthetic samples using SMOTE
+	X, Y = SMOTE(random_state=7, ratio='auto').fit_sample(X,Y)
+	Y = pd.get_dummies(pd.Series(Y)).as_matrix()
+	return X,Y
 
-Y = pd.get_dummies(pd.Series(Y)).as_matrix()
+def getTestData():
+	print("getting test data ...")
+	df = loadFile(8)
+	Y = pd.get_dummies(df.click).as_matrix()
+	X = df.drop('click', axis=1).as_matrix()
+	return X,Y
+
+X, Y = getTrainData()
 
 
 # To stop potential randomness
@@ -111,9 +126,9 @@ def train_neural_network(x, keep_prob):
 	cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, 
 		labels=y))
 	
-	optimizer = tf.train.AdamOptimizer(learning_rate=0.0005).minimize(cost)
-	hm_epochs = 5
-	displayStep = 10
+	optimizer = tf.train.AdamOptimizer(learning_rate=0.0001).minimize(cost)
+	hm_epochs = 100
+	displayStep = 5
 	init = tf.global_variables_initializer()
 
 	epochValues=[]
@@ -154,7 +169,8 @@ def train_neural_network(x, keep_prob):
 			 # Write summary stats to writer
 			# writer.add_summary(summary_results)
 			# print(summary_results)
-			print('Epoch {}/{} Loss: {}'.format(epoch+1, hm_epochs, epoch_loss))
+			if (epoch + 1) % displayStep == 0:
+				print('Epoch {}/{} Loss: {}'.format(epoch+1, hm_epochs, epoch_loss))
 		# costLine, = ax.plot(epochValues, costValues)
 		# fig.canvas.draw()
 		# 	# time.sleep(1)
@@ -173,13 +189,18 @@ def train_neural_network(x, keep_prob):
 		recall = tf.divide(TP, tf.add(TP, FN))
 
 		# **
+		print('Training Accuracy: ',accuracy.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+		print('Training Precision: ',precision.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+		print('Training Recall: ',recall.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+
 		print('Validation Accuracy: ',accuracy.eval({x:val_x, y:val_y, keep_prob: 1.0}))
 		print('Validation Precision: ',precision.eval({x:val_x, y:val_y, keep_prob: 1.0}))
 		print('Validation Recall: ',recall.eval({x:val_x, y:val_y, keep_prob: 1.0}))
 
-		print('Training Accuracy: ',accuracy.eval({x:train_x, y:train_y, keep_prob: 1.0}))
-		print('Training Precision: ',precision.eval({x:train_x, y:train_y, keep_prob: 1.0}))
-		print('Training Recall: ',recall.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+		test_x, test_y = getTestData()
+		print('Test Accuracy: ',accuracy.eval({x:test_x, y:test_y, keep_prob: 1.0}))
+		print('Test Precision: ',precision.eval({x:test_x, y:test_y, keep_prob: 1.0}))
+		print('Test Recall: ',recall.eval({x:test_x, y:test_y, keep_prob: 1.0}))
 
 
 train_neural_network(x, keep_prob)
