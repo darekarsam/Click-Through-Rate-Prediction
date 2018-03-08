@@ -1,5 +1,5 @@
 ---
-title: "Report"
+title: "ZypMedia Challenge"
 author: "Sameer Darekar"
 output: html_document
 ---
@@ -87,7 +87,7 @@ For Testing data I get the confusion matrix as follows
 
 I test data I get an Accuracy of 82.33%, Precision 0.33% of and Recall of 60.07%     
 
-Following are the important features where the important features in order are     
+Following are the important features where the important features in order are 'visibility_FirstView', 'height', 'slotPrice', 'bidprice', 'width', 'visibility_Na', 'adexchange_2.0', 'visibility_OtherView', 'adexchange_1.0', 'payPrice', 'adexchange_3.0', 'city_97', 'visibility_SecondView', 'visibility_ThirdView', 'city_191', 'city_220', 'city_202', 'city_334', 'city_216', 'city_280'    
 ![](feature imp.png)
 
 There are high error bars or standard deviation which may indicate that the features are not very predictive, so they get picked almost randomly which leads to high standard deviations from tree to tree, these error bars can also be reduced using proper depth and number of trees selection. This can be solved using extensive hyperparameter search using grid search approach or trying multiple times with different parameters
@@ -106,5 +106,10 @@ The distribution of the scores at the last layer are as follows:
 
 In ideal case the distribution for click should be to the right most and and that for no click should be towards the left which indicates good seperation. In this case there is some overlap in the distribution. 
 
-I still believe we can improve the performance of this Neural Network using extensive hyperparameter search to get the optimal values of the parameters. I need to experiment with the structure of the layers which could improve the precision.
+I still believe we can improve the performance of this Neural Network using extensive hyperparameter search to get the optimal values of the parameters. I need to experiment with the structure of the layers which could improve the precision.     
+
+## Future Work     
+- We can work with other techniques like online learning or incremental learning in batch where we feed the classifier with data for one day at a time and adjust the weights so that they learn as the data grows.     
+- We can also model this as an anomaly detection problem as the click data is far less and consider that an anomaly.     
+- We can also build seperate classifiers like one for modelling user behaviour one for advertisement and other to consider logs from conversion and check how that data affects the click data and then combine all these models together to fit on the data.
 
