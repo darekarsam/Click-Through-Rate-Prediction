@@ -73,7 +73,7 @@ def getTestData():
 
 def neural_network_model(data, keep_prob):
 #initialize weights and bias having 0 mean randomly 
-	seed = 149
+	seed = 7
 	hidden_1_layer = {'weights':tf.Variable(tf.random_normal([features, n_nodes_hl1], seed=seed)),
 					  'biases':tf.Variable(tf.random_normal([n_nodes_hl1], seed=seed))}
 
@@ -167,11 +167,11 @@ def train_neural_network(x, keep_prob):
 				epoch_loss += c
 				i += batch_size
 			
-			# if (epoch + 1) % displayStep == 0:
-			print('Epoch {}/{} Loss: {:.4f}'.format(epoch+1, hm_epochs, epoch_loss))
+			if (epoch + 1) % displayStep == 0:
+				print('Epoch {}/{} Loss: {:.4f}'.format(epoch+1, hm_epochs, epoch_loss))
+
 			epochValues['valPrecision'] = list(np.asarray(epochValues['valPrecision'])*0.5)
 			epochValues['trainPrecision'] = list(np.asarray(epochValues['trainPrecision'])*0.5)
-			# epochValues['testPrecision'] = list(np.asarray(epochValues['valPrecision'])*0.25)
 
 			epochValues['epoch'].append(epoch + 1)
 			epochValues['loss'].append(epoch_loss)
@@ -191,6 +191,11 @@ def train_neural_network(x, keep_prob):
 		print('Final Training Accuracy: ',accuracy.eval({x:train_x, y:train_y, keep_prob: 1.0}))
 		print('Final Training Precision: ',precision.eval({x:train_x, y:train_y, keep_prob: 1.0}))
 		print('Final Training Recall: ',recall.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+		print('TP : ', TP.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+		print('TN : ', TN.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+		print('FP : ', FP.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+		print('FN : ', FN.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+
 		print(" ")
 
 		print('Final Validation Accuracy: ',accuracy.eval({x:val_x, y:val_y, keep_prob: 1.0}))
@@ -202,11 +207,11 @@ def train_neural_network(x, keep_prob):
 		print('Final Test Accuracy: ',accuracy.eval({x:test_x, y:test_y, keep_prob: 1.0}))
 		print('Final Test Precision: ',precision.eval({x:test_x, y:test_y, keep_prob: 1.0}))
 		print('Final Test Recall: ',recall.eval({x:test_x, y:test_y, keep_prob: 1.0}))
+		print('TP : ', TP.eval({x:test_x, y:test_y, keep_prob: 1.0}))
+		print('TN : ', TN.eval({x:test_x, y:test_y, keep_prob: 1.0}))
+		print('FP : ', FP.eval({x:test_x, y:test_y, keep_prob: 1.0}))
+		print('FN : ', FN.eval({x:test_x, y:test_y, keep_prob: 1.0}))
 		print(" ")
-
-		# # Normalize Loss values for visualization purposes
-		# lossSum = sum(epochValues['loss'])
-		# epochValues['loss'] = [i / lossSum for i in epochValues['loss']]
 
 		f, (ax1, ax2, ax3, ax4) = plt.subplots(4, sharex=True)
 		ax1.plot(epochValues['epoch'], epochValues['loss'], label="Loss", color='r')
@@ -233,6 +238,7 @@ def train_neural_network(x, keep_prob):
 		plt.savefig('timeframe.png')
 		# plt.show()
 
+
 		proba1 = prediction[:, 1]
 		proba1 = proba1.eval({x:train_x, y:train_y, keep_prob: 1.0})
 		index1 = actual.eval({x:train_x, y:train_y, keep_prob: 1.0})
@@ -243,6 +249,7 @@ def train_neural_network(x, keep_prob):
 		ax = sns.distplot(probaDf[probaDf.click==1].proba1, hist=False, label="Click", color='blue')
 		ax.set_title("Score Distribution of Prediction by class variable")
 		plt.savefig('distr.png')
+		# import ipdb; ipdb.set_trace()
 		# plt.show()
 
 		
@@ -261,7 +268,7 @@ split_size = int(X.shape[0]*0.8)
 train_x, val_x = X[:split_size], X[split_size:]
 train_y, val_y = Y[:split_size], Y[split_size:]
 
-	# Neural Network size parameters
+# Neural Network size parameters
 n_nodes_hl1 = 500
 n_nodes_hl2 = 250
 n_nodes_hl3 = 40
