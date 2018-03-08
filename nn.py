@@ -73,17 +73,18 @@ def getTestData():
 
 def neural_network_model(data, keep_prob):
 #initialize weights and bias having 0 mean randomly 
-	hidden_1_layer = {'weights':tf.Variable(tf.random_normal([features, n_nodes_hl1])),
-					  'biases':tf.Variable(tf.random_normal([n_nodes_hl1]))}
+	seed = 149
+	hidden_1_layer = {'weights':tf.Variable(tf.random_normal([features, n_nodes_hl1], seed=seed)),
+					  'biases':tf.Variable(tf.random_normal([n_nodes_hl1], seed=seed))}
 
-	hidden_2_layer = {'weights':tf.Variable(tf.random_normal([n_nodes_hl1, n_nodes_hl2])),
-					  'biases':tf.Variable(tf.random_normal([n_nodes_hl2]))}
+	hidden_2_layer = {'weights':tf.Variable(tf.random_normal([n_nodes_hl1, n_nodes_hl2], seed=seed)),
+					  'biases':tf.Variable(tf.random_normal([n_nodes_hl2], seed=seed))}
 
-	hidden_3_layer = {'weights':tf.Variable(tf.random_normal([n_nodes_hl2, n_nodes_hl3])),
-					  'biases':tf.Variable(tf.random_normal([n_nodes_hl3]))}
+	hidden_3_layer = {'weights':tf.Variable(tf.random_normal([n_nodes_hl2, n_nodes_hl3], seed=seed)),
+					  'biases':tf.Variable(tf.random_normal([n_nodes_hl3], seed=seed))}
 
-	output_layer = {'weights':tf.Variable(tf.random_normal([n_nodes_hl3, n_classes])),
-					'biases':tf.Variable(tf.random_normal([n_classes]))}
+	output_layer = {'weights':tf.Variable(tf.random_normal([n_nodes_hl3, n_classes], seed=seed)),
+					'biases':tf.Variable(tf.random_normal([n_classes], seed=seed))}
 	
 	
 
@@ -116,22 +117,38 @@ def train_neural_network(x, keep_prob):
 	displayStep = 5
 	init = tf.global_variables_initializer()
 
-	epochValues=[]
-	costValues=[]
+	epochValues = {
+					'epoch' : [],
+					'loss' : [],
+					'trainAccuracy' : [],
+					'trainPrecision' : [],
+					'trainRecall' : [],
 
-	# Turn on interactive plotting
-	# plt.ion()
-	# # Create the main, super plot
-	# fig = plt.figure()
+					'valAccuracy' : [],
+					'valPrecision' : [],
+					'valRecall' : [],
 
-	# # Create two subplots on their own axes and give titles
-	# ax = plt.subplot()
-	# ax.set_title("TRAINING LOSS", fontsize=18)
-	# plt.tight_layout()
+					'testAccuracy' : [],
+					'testPrecision' : [],
+					'testRecall' : []
+	}
+	
+	predicted = tf.argmax(prediction, 1)
+	actual = tf.argmax(y, 1)
+
+	correct = tf.equal(predicted, actual)
+	accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
+
+	TP = tf.count_nonzero(predicted * actual, dtype=tf.float32)
+	TN = tf.count_nonzero((predicted - 1) * (actual - 1), dtype=tf.float32)
+	FP = tf.count_nonzero(predicted * (actual - 1), dtype=tf.float32)
+	FN = tf.count_nonzero((predicted - 1) * actual, dtype=tf.float32)
+	precision = tf.divide(TP, tf.add(TP, FP))
+	recall = tf.divide(TP, tf.add(TP, FN))
+	test_x, test_y = getTestData()
 
 	with tf.Session() as sess:
 		sess.run(init)
-
 
 		for epoch in range(hm_epochs):
 			epoch_loss = 0
@@ -149,50 +166,73 @@ def train_neural_network(x, keep_prob):
 									})
 				epoch_loss += c
 				i += batch_size
-			epochValues.append(epoch + 1)
-			costValues.append(epoch_loss)
-			 # Write summary stats to writer
-			# writer.add_summary(summary_results)
-			# print(summary_results)
-			if (epoch + 1) % displayStep == 0:
-				print('Epoch {}/{} Loss: {}'.format(epoch+1, hm_epochs, epoch_loss))
-		# costLine, = ax.plot(epochValues, costValues)
-		# fig.canvas.draw()
-		#   # time.sleep(1)
-		# import ipdb; ipdb.set_trace()
-		predicted = tf.argmax(prediction, 1)
-		actual = tf.argmax(y, 1)
+			
+			# if (epoch + 1) % displayStep == 0:
+			print('Epoch {}/{} Loss: {:.4f}'.format(epoch+1, hm_epochs, epoch_loss))
+			epochValues['valPrecision'] = list(np.asarray(epochValues['valPrecision'])*0.5)
+			epochValues['trainPrecision'] = list(np.asarray(epochValues['trainPrecision'])*0.5)
+			# epochValues['testPrecision'] = list(np.asarray(epochValues['valPrecision'])*0.25)
 
-		correct = tf.equal(predicted, actual)
-		accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
+			epochValues['epoch'].append(epoch + 1)
+			epochValues['loss'].append(epoch_loss)
 
-		TP = tf.count_nonzero(predicted * actual, dtype=tf.float32)
-		TN = tf.count_nonzero((predicted - 1) * (actual - 1), dtype=tf.float32)
-		FP = tf.count_nonzero(predicted * (actual - 1), dtype=tf.float32)
-		FN = tf.count_nonzero((predicted - 1) * actual, dtype=tf.float32)
-		precision = tf.divide(TP, tf.add(TP, FP))
-		recall = tf.divide(TP, tf.add(TP, FN))
+			epochValues['valAccuracy'].append(accuracy.eval({x:val_x, y:val_y, keep_prob: 1.0}))
+			epochValues['valPrecision'].append(precision.eval({x:val_x, y:val_y, keep_prob: 1.0}))
+			epochValues['valRecall'].append(recall.eval({x:val_x, y:val_y, keep_prob: 1.0}))
 
-		# **
-		print('Training Accuracy: ',accuracy.eval({x:train_x, y:train_y, keep_prob: 1.0}))
-		print('Training Precision: ',precision.eval({x:train_x, y:train_y, keep_prob: 1.0}))
-		print('Training Recall: ',recall.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+			epochValues['trainAccuracy'].append(accuracy.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+			epochValues['trainPrecision'].append(precision.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+			epochValues['trainRecall'].append(recall.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+
+			epochValues['testAccuracy'].append(accuracy.eval({x:test_x, y:test_y, keep_prob: 1.0}))
+			epochValues['testPrecision'].append(precision.eval({x:test_x, y:test_y, keep_prob: 1.0}))
+			epochValues['testRecall'].append(recall.eval({x:test_x, y:test_y, keep_prob: 1.0}))
+
+		print('Final Training Accuracy: ',accuracy.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+		print('Final Training Precision: ',precision.eval({x:train_x, y:train_y, keep_prob: 1.0}))
+		print('Final Training Recall: ',recall.eval({x:train_x, y:train_y, keep_prob: 1.0}))
 		print(" ")
 
-		print('Validation Accuracy: ',accuracy.eval({x:val_x, y:val_y, keep_prob: 1.0}))
-		print('Validation Precision: ',precision.eval({x:val_x, y:val_y, keep_prob: 1.0}))
-		print('Validation Recall: ',recall.eval({x:val_x, y:val_y, keep_prob: 1.0}))
+		print('Final Validation Accuracy: ',accuracy.eval({x:val_x, y:val_y, keep_prob: 1.0}))
+		print('Final Validation Precision: ',precision.eval({x:val_x, y:val_y, keep_prob: 1.0}))
+		print('Final Validation Recall: ',recall.eval({x:val_x, y:val_y, keep_prob: 1.0}))
 		print(" ")
 
-		test_x, test_y = getTestData()
-		print('Test Accuracy: ',accuracy.eval({x:test_x, y:test_y, keep_prob: 1.0}))
-		print('Test Precision: ',precision.eval({x:test_x, y:test_y, keep_prob: 1.0}))
-		print('Test Recall: ',recall.eval({x:test_x, y:test_y, keep_prob: 1.0}))
+		
+		print('Final Test Accuracy: ',accuracy.eval({x:test_x, y:test_y, keep_prob: 1.0}))
+		print('Final Test Precision: ',precision.eval({x:test_x, y:test_y, keep_prob: 1.0}))
+		print('Final Test Recall: ',recall.eval({x:test_x, y:test_y, keep_prob: 1.0}))
 		print(" ")
 
-		# import ipdb; ipdb.set_trace()
-		# indexes = np.ones(train_x.shape[0])
-		# indexes = tf.convert_to_tensor(indexes)
+		# # Normalize Loss values for visualization purposes
+		# lossSum = sum(epochValues['loss'])
+		# epochValues['loss'] = [i / lossSum for i in epochValues['loss']]
+
+		f, (ax1, ax2, ax3, ax4) = plt.subplots(4, sharex=True)
+		ax1.plot(epochValues['epoch'], epochValues['loss'], label="Loss", color='r')
+		ax1.set_title("Loss")
+
+		l1, = ax2.plot(epochValues['epoch'], epochValues['trainAccuracy'], label="Train Accuracy", color='b')
+		l2, = ax2.plot(epochValues['epoch'], epochValues['testAccuracy'], label="Test Accuracy", color='g')
+		l3, = ax2.plot(epochValues['epoch'], epochValues['valAccuracy'], label="Validation Accuracy", color='m')
+		ax2.set_title("Accuracy")
+
+		ax3.plot(epochValues['epoch'], epochValues['trainPrecision'], label="Train Precision", color='b')
+		ax3.plot(epochValues['epoch'], epochValues['testPrecision'], label="Test Precision", color='g')
+		ax3.plot(epochValues['epoch'], epochValues['valPrecision'], label="Validation Precision", color='m')
+		ax3.set_title("Precision(train and val values are divided by 2 for )")
+
+		ax4.plot(epochValues['epoch'], epochValues['trainRecall'], label="Train Recall", color='b')
+		ax4.plot(epochValues['epoch'], epochValues['testRecall'], label="Test Recall", color='g')
+		ax4.plot(epochValues['epoch'], epochValues['valRecall'], label="Validation Recall", color='m')
+		ax4.set_title("Recall")
+
+		plt.legend([l1, l2, l3],["Train", "Test", "Validation"])
+		plt.setp([a.get_xticklabels() for a in f.axes[:-1]], visible=False)
+		
+		plt.savefig('timeframe.png')
+		# plt.show()
+
 		proba1 = prediction[:, 1]
 		proba1 = proba1.eval({x:train_x, y:train_y, keep_prob: 1.0})
 		index1 = actual.eval({x:train_x, y:train_y, keep_prob: 1.0})
@@ -203,7 +243,7 @@ def train_neural_network(x, keep_prob):
 		ax = sns.distplot(probaDf[probaDf.click==1].proba1, hist=False, label="Click", color='blue')
 		ax.set_title("Score Distribution of Prediction by class variable")
 		plt.savefig('distr.png')
-		plt.show()
+		# plt.show()
 
 		
 
